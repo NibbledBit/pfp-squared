@@ -1,5 +1,8 @@
-# Pretty Fucking Plain Profile Pictures
-## PFP<sup>2</sup>
+# PFP<sup>2</sup>
+
+### Pretty Fucking Plain Profile Pictures
+
+------------------------
 
 PFP<sup>2</sup> is a project that enables people to generate, mint and own their own profile picture on the Ethereum Blockchain, purchase an algorithm built profile picture, or commision a completely bespoke low range ID and profile picture.
 
