@@ -1,7 +1,7 @@
 # Pretty Fucking Plain Profile Pictures
 ## PFP<sup>2</sup>
 
-PFP<sup>2</sup> is a project that enables people to generate, mint and own their own profile picture on the Ethereum Blockchain
+PFP<sup>2</sup> is a project that enables people to generate, mint and own their own profile picture on the Ethereum Blockchain, purchase an algorithm built profile picture, or commision a completely bespoke low range ID and profile picture.
 
 | Tiers | | | |
 | --- | --- | --- | --- |
@@ -15,3 +15,4 @@ Silver: Will be algorithmically generated, they will have features based on cele
 
 Gold: Unique 1/1 NFTs. This ID range is reserved for commisioned pieces or custom unique pfps.
 
+Imagery and Metadata will be hosted on IPFS.
