@@ -23,13 +23,13 @@ def init_genes():
     bit_counter += face_shape_bit_length
     genes.append(Gene("skin-colour", bit_counter, skin_colour_bit_length))
     bit_counter += skin_colour_bit_length
-    genes.append(Gene("face-shape", bit_counter, eye_shape_bit_length))
+    genes.append(Gene("eye-shape", bit_counter, eye_shape_bit_length))
     bit_counter += eye_shape_bit_length
-    genes.append(Gene("face-shape", bit_counter, nose_shape_bit_length))
+    genes.append(Gene("nose-shape", bit_counter, nose_shape_bit_length))
     bit_counter += nose_shape_bit_length
-    genes.append(Gene("skin-colour", bit_counter, eye_colour_bit_length))
+    genes.append(Gene("eye-colour", bit_counter, eye_colour_bit_length))
     bit_counter += eye_colour_bit_length
-    genes.append(Gene("face-shape", bit_counter, mouth_shape_bit_length))
+    genes.append(Gene("mouth-shape", bit_counter, mouth_shape_bit_length))
     bit_counter += mouth_shape_bit_length
     return genes
 

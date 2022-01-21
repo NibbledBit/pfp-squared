@@ -1,22 +1,19 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.7.0;
+pragma solidity ^0.7.6;
+pragma abicoder v2;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@chainlink/contracts/src/v0.7/VRFConsumerBase.sol";
 
 contract PrettyFreakinPlainPFP is ERC721, VRFConsumerBase {
-    uint256 public tokenCounter;
-    bytes32 public keyhash;
-    uint256 public fee;
-
-    mapping(uint256 => ProfilePicture) public tokedIdToPfp;
-
-    mapping(bytes32 => address) public requestIdToSender;
     event requestedCollectible(bytes32 indexed requestId, address requester);
 
-    uint256 public mintCalls;
-    uint256 public randomCalls;
+    function timesMinted() public view returns (uint256) {
+        return varData.mintCalls;
+    }
+
+    pfpns.Vars public varData;
 
     constructor(
         address _vrfCoordinator,
@@ -28,26 +25,27 @@ contract PrettyFreakinPlainPFP is ERC721, VRFConsumerBase {
         VRFConsumerBase(_vrfCoordinator, _linkToken)
         ERC721("Test PFP", "PFP0")
     {
-        tokenCounter = 0;
-        mintCalls = 0;
-        randomCalls = 0;
-        keyhash = _keyHash;
-        fee = _fee;
+        varData.mintCalls = 0;
+        varData.randomCalls = 0;
+        varData.keyhash = _keyHash;
+        varData.fee = _fee;
     }
 
     function publicMint(
-        BackgroundColour bg,
-        FaceShape face,
-        SkinColour skin,
-        EyeShape eyeShape,
-        EyeColour eyeColour,
-        NoseShape nose,
-        Mouth mouth,
-        HairStyle style,
-        HairColour color,
-        FacialHair facialHair
+        pfpns.BackgroundColour bg,
+        pfpns.FaceShape face,
+        pfpns.SkinColour skin,
+        pfpns.EyeShape eyeShape,
+        pfpns.EyeColour eyeColour,
+        pfpns.NoseShape nose,
+        pfpns.Mouth mouth,
+        pfpns.HairStyle style,
+        pfpns.HairColour color,
+        pfpns.FacialHair facialHair
     ) public {
-        ProfilePicture storage newPfp = tokedIdToPfp[tokenCounter];
+        pfpns.ProfilePicture memory newPfp = varData.tokedIdToPfp[
+            varData.mintCalls
+        ];
         newPfp.bgColour = bg;
         newPfp.face = face;
         newPfp.skin = skin;
@@ -59,18 +57,83 @@ contract PrettyFreakinPlainPFP is ERC721, VRFConsumerBase {
         newPfp.hairColour = color;
         newPfp.facialHair = facialHair;
 
-        mintCalls = mintCalls + 1;
+        uint256 dna = getDna(newPfp);
 
-        bytes32 requestId = requestRandomness(keyhash, fee);
-        requestIdToSender[requestId] = msg.sender;
+        bool claimed = varData.dnaClaimed[dna];
+
+        require(claimed == false);
+
+        varData.mintCalls = varData.mintCalls + 1;
+
+        bytes32 requestId = requestRandomness(varData.keyhash, varData.fee);
+        varData.requestIdToSender[requestId] = msg.sender;
+        varData.dnaClaimed[dna] = true;
+
         emit requestedCollectible(requestId, msg.sender);
+    }
+
+    function getDna(pfpns.ProfilePicture memory pfp)
+        public
+        pure
+        returns (uint256)
+    {
+        uint256 dnaBuilder = uint256(pfp.face) << 0;
+        dnaBuilder = dnaBuilder + (uint256(pfp.skin) << 3);
+        dnaBuilder = dnaBuilder + (uint256(pfp.eyeShape) << 6);
+        dnaBuilder = dnaBuilder + (uint256(pfp.eyeColour) << 8);
+        dnaBuilder = dnaBuilder + (uint256(pfp.nose) << 11);
+        dnaBuilder = dnaBuilder + (uint256(pfp.mouth) << 14);
+
+        return dnaBuilder;
     }
 
     function fulfillRandomness(bytes32 requestId, uint256 randomNumber)
         internal
         override
     {
-        randomCalls = randomCalls + 1;
+        varData.randomCalls = varData.randomCalls + 1;
+    }
+
+    function dnaAvailable(
+        pfpns.BackgroundColour bg,
+        pfpns.FaceShape face,
+        pfpns.SkinColour skin,
+        pfpns.EyeShape eyeShape,
+        pfpns.EyeColour eyeColour,
+        pfpns.NoseShape nose,
+        pfpns.Mouth mouth,
+        pfpns.HairStyle style,
+        pfpns.HairColour color,
+        pfpns.FacialHair facialHair
+    ) public view returns (bool) {
+        pfpns.ProfilePicture memory newPfp = varData.tokedIdToPfp[
+            varData.mintCalls
+        ];
+        newPfp.bgColour = bg;
+        newPfp.face = face;
+        newPfp.skin = skin;
+        newPfp.eyeShape = eyeShape;
+        newPfp.eyeColour = eyeColour;
+        newPfp.nose = nose;
+        newPfp.mouth = mouth;
+        newPfp.hairStyle = style;
+        newPfp.hairColour = color;
+        newPfp.facialHair = facialHair;
+
+        uint256 dna = getDna(newPfp);
+        return varData.dnaClaimed[dna];
+    }
+}
+
+library pfpns {
+    struct Vars {
+        bytes32 keyhash;
+        uint256 fee;
+        mapping(uint256 => pfpns.ProfilePicture) tokedIdToPfp;
+        mapping(uint256 => bool) dnaClaimed;
+        mapping(bytes32 => address) requestIdToSender;
+        uint256 mintCalls;
+        uint256 randomCalls;
     }
 
     struct ProfilePicture {
