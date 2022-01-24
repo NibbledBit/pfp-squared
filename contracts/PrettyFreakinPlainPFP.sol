@@ -9,6 +9,8 @@ import "@chainlink/contracts/src/v0.7/VRFConsumerBase.sol";
 contract PrettyFreakinPlainPFP is ERC721, VRFConsumerBase {
     event requestedCollectible(bytes32 indexed requestId, address requester);
 
+    address public owner;
+
     function timesMinted() public view returns (uint256) {
         return varData.mintCalls;
     }
@@ -29,6 +31,7 @@ contract PrettyFreakinPlainPFP is ERC721, VRFConsumerBase {
         varData.randomCalls = 0;
         varData.keyhash = _keyHash;
         varData.fee = _fee;
+        owner = msg.sender;
     }
 
     function publicMint(
@@ -42,8 +45,10 @@ contract PrettyFreakinPlainPFP is ERC721, VRFConsumerBase {
         pfpns.HairStyle style,
         pfpns.HairColour color,
         pfpns.FacialHair facialHair
-    ) public {
-        pfpns.ProfilePicture memory newPfp = varData.tokedIdToPfp[
+    ) public payable {
+        require(msg.value > 1 * 10**18, "1 ETH to mint a pfp");
+
+        pfpns.ProfilePicture memory newPfp = varData.tokenIdToPfp[
             varData.mintCalls
         ];
         newPfp.bgColour = bg;
@@ -63,13 +68,16 @@ contract PrettyFreakinPlainPFP is ERC721, VRFConsumerBase {
 
         require(claimed == false);
 
-        varData.mintCalls = varData.mintCalls + 1;
-
         bytes32 requestId = requestRandomness(varData.keyhash, varData.fee);
-        varData.requestIdToSender[requestId] = msg.sender;
         varData.dnaClaimed[dna] = true;
+        varData.tokenIdToPfp[varData.mintCalls] = newPfp;
+        varData.requestIdToTokenId[requestId] = varData.mintCalls;
 
         emit requestedCollectible(requestId, msg.sender);
+
+        _safeMint(msg.sender, varData.mintCalls);
+
+        varData.mintCalls = varData.mintCalls + 1;
     }
 
     function getDna(pfpns.ProfilePicture memory pfp)
@@ -94,6 +102,13 @@ contract PrettyFreakinPlainPFP is ERC721, VRFConsumerBase {
         varData.randomCalls = varData.randomCalls + 1;
     }
 
+    function setTokenURI(uint256 tokenId, string memory _tokenURI)
+        public
+        onlyOwner
+    {
+        _setTokenURI(tokenId, _tokenURI);
+    }
+
     function dnaAvailable(
         pfpns.BackgroundColour bg,
         pfpns.FaceShape face,
@@ -106,7 +121,7 @@ contract PrettyFreakinPlainPFP is ERC721, VRFConsumerBase {
         pfpns.HairColour color,
         pfpns.FacialHair facialHair
     ) public view returns (bool) {
-        pfpns.ProfilePicture memory newPfp = varData.tokedIdToPfp[
+        pfpns.ProfilePicture memory newPfp = varData.tokenIdToPfp[
             varData.mintCalls
         ];
         newPfp.bgColour = bg;
@@ -121,7 +136,16 @@ contract PrettyFreakinPlainPFP is ERC721, VRFConsumerBase {
         newPfp.facialHair = facialHair;
 
         uint256 dna = getDna(newPfp);
-        return varData.dnaClaimed[dna];
+        return !varData.dnaClaimed[dna];
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner);
+        _;
+    }
+
+    function withdraw() public payable onlyOwner {
+        msg.sender.transfer(address(this).balance);
     }
 }
 
@@ -129,9 +153,9 @@ library pfpns {
     struct Vars {
         bytes32 keyhash;
         uint256 fee;
-        mapping(uint256 => pfpns.ProfilePicture) tokedIdToPfp;
+        mapping(uint256 => pfpns.ProfilePicture) tokenIdToPfp;
         mapping(uint256 => bool) dnaClaimed;
-        mapping(bytes32 => address) requestIdToSender;
+        mapping(bytes32 => uint256) requestIdToTokenId;
         uint256 mintCalls;
         uint256 randomCalls;
     }

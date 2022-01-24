@@ -20,7 +20,7 @@ def get_publish_account():
     ):
         return accounts[5]
     else:
-        return accounts.add(config["publisher_key"]["from_key"])
+        return accounts.add(config["wallets"]["publisher_key"])
 
 
 def get_personal_account():
@@ -30,7 +30,7 @@ def get_personal_account():
     ):
         return accounts[6]
     else:
-        return accounts.add(config["personal_key"]["from_key"])
+        return accounts.add(config["wallets"]["personal_key"])
 
 
 def get_other1_account():
@@ -40,7 +40,7 @@ def get_other1_account():
     ):
         return accounts[7]
     else:
-        return accounts.add(config["other1_key"]["from_key"])
+        return accounts.add(config["wallets"]["other1_key"])
 
 
 def get_other2_account():
@@ -50,7 +50,7 @@ def get_other2_account():
     ):
         return accounts[8]
     else:
-        return accounts.add(config["other2_key"]["from_key"])
+        return accounts.add(config["wallets"]["other2_key"])
 
 
 # def get_account(index=None, id=None):
