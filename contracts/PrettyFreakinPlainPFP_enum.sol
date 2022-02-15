@@ -6,13 +6,13 @@ pragma abicoder v2;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@chainlink/contracts/src/v0.7/VRFConsumerBase.sol";
 
-contract PrettyFreakinPlainPFP is ERC721, VRFConsumerBase {
+contract PrettyFreakinPlainPFP_enum is ERC721, VRFConsumerBase {
     event requestedCollectible(bytes32 indexed requestId, address requester);
 
     address public owner;
 
     function timesMinted() public view returns (uint256) {
-        return varData.mintCalls;
+        return varData.currentSupply;
     }
 
     pfpns.Vars public varData;
@@ -27,7 +27,7 @@ contract PrettyFreakinPlainPFP is ERC721, VRFConsumerBase {
         VRFConsumerBase(_vrfCoordinator, _linkToken)
         ERC721("Test PFP", "PFP0")
     {
-        varData.mintCalls = 0;
+        varData.currentSupply = 0;
         varData.randomCalls = 0;
         varData.keyhash = _keyHash;
         varData.fee = _fee;
@@ -49,7 +49,7 @@ contract PrettyFreakinPlainPFP is ERC721, VRFConsumerBase {
         require(msg.value > 1 * 10**18, "1 ETH to mint a pfp");
 
         pfpns.ProfilePicture memory newPfp = varData.tokenIdToPfp[
-            varData.mintCalls
+            varData.currentSupply
         ];
         newPfp.bgColour = bg;
         newPfp.face = face;
@@ -62,22 +62,47 @@ contract PrettyFreakinPlainPFP is ERC721, VRFConsumerBase {
         newPfp.hairColour = color;
         newPfp.facialHair = facialHair;
 
-        uint256 dna = getDna(newPfp);
+        bool claimed = alreadyExists(newPfp);
 
-        bool claimed = varData.dnaClaimed[dna];
-
+        // uint256 dna = getDna(newPfp);
+        // bool claimed = varData.dnaClaimed[dna];
         require(claimed == false);
 
         bytes32 requestId = requestRandomness(varData.keyhash, varData.fee);
         varData.dnaClaimed[dna] = true;
-        varData.tokenIdToPfp[varData.mintCalls] = newPfp;
-        varData.requestIdToTokenId[requestId] = varData.mintCalls;
+        varData.tokenIdToPfp[varData.currentSupply] = newPfp;
+        varData.requestIdToTokenId[requestId] = varData.currentSupply;
 
         emit requestedCollectible(requestId, msg.sender);
 
-        _safeMint(msg.sender, varData.mintCalls);
+        _safeMint(msg.sender, varData.currentSupply);
 
-        varData.mintCalls = varData.mintCalls + 1;
+        varData.currentSupply = varData.currentSupply + 1;
+    }
+
+    function alreadyExists(ProfilePicture pfp) public pure returns (bool) {
+        for (uint256 index = 0; index < varData.currentSupply; index++) {
+            ProfilePicture current = varData.tokenIdToPfp[index];
+
+            bool faceUsed = current.face == pfp.face;
+            bool skinUsed = current.skin == pfp.skin;
+            bool eyeShapeUsed = current.eyeShape == pfp.eyeShape;
+            bool eyeColourUsed = current.eyeColour == pfp.eyeColour;
+            bool noseUsed = current.nose == pfp.nose;
+            bool mouthUsed = current.mouth == pfp.mouth;
+
+            if (
+                faceUsed &&
+                skinUsed &&
+                eyeShapeUsed &&
+                eyeColourUsed &&
+                noseUsed &&
+                mouthUsed
+            ) {
+                return true;
+            }
+        }
+        return false;
     }
 
     function getDna(pfpns.ProfilePicture memory pfp)
@@ -122,7 +147,7 @@ contract PrettyFreakinPlainPFP is ERC721, VRFConsumerBase {
         pfpns.FacialHair facialHair
     ) public view returns (bool) {
         pfpns.ProfilePicture memory newPfp = varData.tokenIdToPfp[
-            varData.mintCalls
+            varData.currentSupply
         ];
         newPfp.bgColour = bg;
         newPfp.face = face;
@@ -156,7 +181,7 @@ library pfpns {
         mapping(uint256 => pfpns.ProfilePicture) tokenIdToPfp;
         mapping(uint256 => bool) dnaClaimed;
         mapping(bytes32 => uint256) requestIdToTokenId;
-        uint256 mintCalls;
+        uint256 currentSupply;
         uint256 randomCalls;
     }
 
