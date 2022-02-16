@@ -1,37 +1,42 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.7.6;
+pragma solidity ^0.8.0;
 pragma abicoder v2;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@chainlink/contracts/src/v0.7/VRFConsumerBase.sol";
 
-contract PrettyFreakinPlainPFP is ERC721, VRFConsumerBase {
-    event requestedCollectible(bytes32 indexed requestId, address requester);
+contract PrettyFreakinPlainPFP is
+    ERC721,
+    ERC721URIStorage,
+    Ownable,
+    VRFConsumerBase
+{
+    bytes32 keyhash;
+    uint256 fee;
+    mapping(uint256 => pfpns.ProfilePicture) tokenIdToPfp;
+    mapping(uint256 => bool) dnaClaimed;
+    mapping(bytes32 => uint256) requestIdToTokenId;
 
-    address public owner;
+    uint256 currentSupply;
+    uint256 maxSupply;
 
-    function timesMinted() public view returns (uint256) {
-        return varData.mintCalls;
-    }
+    uint256 mintingFee;
 
-    pfpns.Vars public varData;
+    event pfpCreated(address owner, uint256 tokenId);
 
     constructor(
         address _vrfCoordinator,
         address _linkToken,
         bytes32 _keyHash,
         uint256 _fee
-    )
-        public
-        VRFConsumerBase(_vrfCoordinator, _linkToken)
-        ERC721("Test PFP", "PFP0")
-    {
-        varData.mintCalls = 0;
-        varData.randomCalls = 0;
-        varData.keyhash = _keyHash;
-        varData.fee = _fee;
-        owner = msg.sender;
+    ) VRFConsumerBase(_vrfCoordinator, _linkToken) ERC721("Test PFP", "PFP0") {
+        keyhash = _keyHash;
+        fee = _fee;
+        maxSupply = 10000;
+        currentSupply = 0;
     }
 
     function publicMint(
@@ -48,9 +53,7 @@ contract PrettyFreakinPlainPFP is ERC721, VRFConsumerBase {
     ) public payable {
         require(msg.value > 1 * 10**18, "1 ETH to mint a pfp");
 
-        pfpns.ProfilePicture memory newPfp = varData.tokenIdToPfp[
-            varData.mintCalls
-        ];
+        pfpns.ProfilePicture memory newPfp = tokenIdToPfp[currentSupply];
         newPfp.bgColour = bg;
         newPfp.face = face;
         newPfp.skin = skin;
@@ -64,42 +67,26 @@ contract PrettyFreakinPlainPFP is ERC721, VRFConsumerBase {
 
         uint256 dna = getDna(newPfp);
 
-        bool claimed = varData.dnaClaimed[dna];
-
+        bool claimed = dnaClaimed[dna];
         require(claimed == false);
 
-        bytes32 requestId = requestRandomness(varData.keyhash, varData.fee);
-        varData.dnaClaimed[dna] = true;
-        varData.tokenIdToPfp[varData.mintCalls] = newPfp;
-        varData.requestIdToTokenId[requestId] = varData.mintCalls;
+        bytes32 requestId = requestRandomness(keyhash, fee);
+        dnaClaimed[dna] = true;
+        tokenIdToPfp[currentSupply] = newPfp;
+        requestIdToTokenId[requestId] = currentSupply;
 
-        emit requestedCollectible(requestId, msg.sender);
+        _safeMint(msg.sender, currentSupply);
 
-        _safeMint(msg.sender, varData.mintCalls);
-
-        varData.mintCalls = varData.mintCalls + 1;
-    }
-
-    function getDna(pfpns.ProfilePicture memory pfp)
-        public
-        pure
-        returns (uint256)
-    {
-        uint256 dnaBuilder = uint256(pfp.face) << 0;
-        dnaBuilder = dnaBuilder + (uint256(pfp.skin) << 3);
-        dnaBuilder = dnaBuilder + (uint256(pfp.eyeShape) << 6);
-        dnaBuilder = dnaBuilder + (uint256(pfp.eyeColour) << 8);
-        dnaBuilder = dnaBuilder + (uint256(pfp.nose) << 11);
-        dnaBuilder = dnaBuilder + (uint256(pfp.mouth) << 14);
-
-        return dnaBuilder;
+        currentSupply += 1;
+        uint256 change = msg.value - mintingFee;
+        payable(msg.sender).transfer(change);
     }
 
     function fulfillRandomness(bytes32 requestId, uint256 randomNumber)
         internal
         override
     {
-        varData.randomCalls = varData.randomCalls + 1;
+        emit pfpCreated(msg.sender, requestIdToTokenId[requestId]);
     }
 
     function setTokenURI(uint256 tokenId, string memory _tokenURI)
@@ -121,9 +108,7 @@ contract PrettyFreakinPlainPFP is ERC721, VRFConsumerBase {
         pfpns.HairColour color,
         pfpns.FacialHair facialHair
     ) public view returns (bool) {
-        pfpns.ProfilePicture memory newPfp = varData.tokenIdToPfp[
-            varData.mintCalls
-        ];
+        pfpns.ProfilePicture memory newPfp = tokenIdToPfp[currentSupply];
         newPfp.bgColour = bg;
         newPfp.face = face;
         newPfp.skin = skin;
@@ -136,30 +121,48 @@ contract PrettyFreakinPlainPFP is ERC721, VRFConsumerBase {
         newPfp.facialHair = facialHair;
 
         uint256 dna = getDna(newPfp);
-        return !varData.dnaClaimed[dna];
+        return !dnaClaimed[dna];
     }
 
-    modifier onlyOwner() {
-        require(msg.sender == owner);
-        _;
+    function getDna(pfpns.ProfilePicture memory pfp)
+        public
+        pure
+        returns (uint256)
+    {
+        uint256 dnaBuilder = uint256(pfp.face) << 0;
+        dnaBuilder = dnaBuilder + (uint256(pfp.skin) << 3);
+        dnaBuilder = dnaBuilder + (uint256(pfp.eyeShape) << 6);
+        dnaBuilder = dnaBuilder + (uint256(pfp.eyeColour) << 8);
+        dnaBuilder = dnaBuilder + (uint256(pfp.nose) << 11);
+        dnaBuilder = dnaBuilder + (uint256(pfp.mouth) << 14);
+
+        return dnaBuilder;
     }
 
     function withdraw() public payable onlyOwner {
-        msg.sender.transfer(address(this).balance);
+        payable(msg.sender).transfer(address(this).balance);
+    }
+
+    // The following functions are overrides required by Solidity.
+
+    function _burn(uint256 tokenId)
+        internal
+        override(ERC721, ERC721URIStorage)
+    {
+        super._burn(tokenId);
+    }
+
+    function tokenURI(uint256 tokenId)
+        public
+        view
+        override(ERC721, ERC721URIStorage)
+        returns (string memory)
+    {
+        return super.tokenURI(tokenId);
     }
 }
 
 library pfpns {
-    struct Vars {
-        bytes32 keyhash;
-        uint256 fee;
-        mapping(uint256 => pfpns.ProfilePicture) tokenIdToPfp;
-        mapping(uint256 => bool) dnaClaimed;
-        mapping(bytes32 => uint256) requestIdToTokenId;
-        uint256 mintCalls;
-        uint256 randomCalls;
-    }
-
     struct ProfilePicture {
         // background elements
         BackgroundColour bgColour;
