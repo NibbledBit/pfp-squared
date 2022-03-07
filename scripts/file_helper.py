@@ -16,7 +16,3 @@ def get_image(filename):
         print(f"Image {filename} could not be found!")
     im = Image.open(filename)
     return im
-
-
-def save_image(filename, image):
-    pass

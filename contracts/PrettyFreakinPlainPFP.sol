@@ -6,16 +6,8 @@ pragma abicoder v2;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@chainlink/contracts/src/v0.7/VRFConsumerBase.sol";
 
-contract PrettyFreakinPlainPFP is
-    ERC721,
-    ERC721URIStorage,
-    Ownable,
-    VRFConsumerBase
-{
-    bytes32 keyhash;
-    uint256 fee;
+contract PrettyFreakinPlainPFP is ERC721, ERC721URIStorage, Ownable {
     mapping(uint256 => pfpns.ProfilePicture) tokenIdToPfp;
     mapping(uint256 => bool) dnaClaimed;
     mapping(bytes32 => uint256) requestIdToTokenId;
@@ -27,14 +19,7 @@ contract PrettyFreakinPlainPFP is
 
     event pfpCreated(address owner, uint256 tokenId);
 
-    constructor(
-        address _vrfCoordinator,
-        address _linkToken,
-        bytes32 _keyHash,
-        uint256 _fee
-    ) VRFConsumerBase(_vrfCoordinator, _linkToken) ERC721("Test PFP", "PFP0") {
-        keyhash = _keyHash;
-        fee = _fee;
+    constructor() ERC721("Test PFP", "PFP0") {
         maxSupply = 10000;
         currentSupply = 0;
     }
@@ -70,23 +55,14 @@ contract PrettyFreakinPlainPFP is
         bool claimed = dnaClaimed[dna];
         require(claimed == false);
 
-        bytes32 requestId = requestRandomness(keyhash, fee);
         dnaClaimed[dna] = true;
         tokenIdToPfp[currentSupply] = newPfp;
-        requestIdToTokenId[requestId] = currentSupply;
 
         _safeMint(msg.sender, currentSupply);
 
         currentSupply += 1;
         uint256 change = msg.value - mintingFee;
         payable(msg.sender).transfer(change);
-    }
-
-    function fulfillRandomness(bytes32 requestId, uint256 randomNumber)
-        internal
-        override
-    {
-        emit pfpCreated(msg.sender, requestIdToTokenId[requestId]);
     }
 
     function setTokenURI(uint256 tokenId, string memory _tokenURI)
